@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
   <head>
@@ -5,11 +6,602 @@
     <link rel="stylesheet" type="text/css" href="https://cdn.mxpnl.com/libs/mixpanel-platform/css/reset.css">
     <link rel="stylesheet" type="text/css" href="https://cdn.mxpnl.com/libs/mixpanel-platform/build/mixpanel-platform.v0.latest.min.css">
     <script src="https://cdn.mxpnl.com/libs/mixpanel-platform/build/mixpanel-platform.v0.latest.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ractive/0.7.3/ractive.min.js"></script>
   </head>
+<style type="text/css">
+
+.formTitle {
+  padding-bottom: 5px;
+  width:100%;
+  margin:3px;
+}
+
+.formWrapper input {
+  padding:0;
+  height:18px;
+  margin-bottom: 5px;
+  text-align: center;
+  width:100%;
+  font-size:12px;
+  color:#747d94;
+  text-align:center;
+}
+
+.formWrapper input[type="button"] {
+  width:156px;
+  height:10px;
+  font-weight: bold;
+  box-shadow:0 1px 2px 0 rgba(0,0,0,0.1);
+}
+
+h1 {
+  font-size:22px;
+  color:#747d94;
+  text-align:center;
+  padding:10px 0 10px 0;
+}
+
+span.date {
+  color:black;
+  padding-top: 10px;
+  display:block;
+}
+
+span.edit {
+  color:black;
+}
+
+.left {
+  float:left;
+  clear:both;
+}
+
+.clear {
+  clear:both;
+}
+
+.right {
+  float:right;
+}
+
+.center {
+  text-align:center;
+}
+
+.notice {
+  font-size:13px;
+  color:#747d94;
+  text-align:center;
+  margin:10px auto 20px auto;
+  padding:0 40px 0 40px;
+}
+
+.formWrapper {
+  width:200px;
+  padding:10px;
+}
+
+.event {
+  padding:10px;
+}
+
+.eventName {
+  font-size: 14px;
+  color:#747d94;
+  font-weight:800;
+  text-align: center;
+  float:left;
+  width:235px;
+}
+
+.propertyName {
+  clear:right;
+  font-size: 14px;
+  color:#747d94;
+  text-align: center;
+  float:right;
+  width:250px;
+}
+
+#newEvent {
+  color:#747d94;
+  border-radius:5px;
+  font-weight:bold;
+  padding:15px;
+  text-transform:uppercase;
+  text-align: center;
+}
+
+#specItems {
+  width:100%;
+  clear:both;
+}
+
+.specItem {
+  display:inline-block;
+  width:100%;
+  padding:1%;
+  box-shadow: 0 1px 0 0 rgba(0,0,0,0.05);
+}
+
+#container {
+  width:760px;
+}
+
+#spec {
+  float: left;
+  width: 70%;
+}
+
+#controls {
+  float: right;
+}
+
+#spec {
+  float:right;
+  clear:both; 
+  width: 470px;
+}
+
+#controls {
+  box-shadow:0 1px 2px 0 rgba(0,0,0,0.1);
+  float:left;
+  position: relative;
+  /*bottom: 50px;*/
+  color:#747d94;
+  border-radius:5px;
+  font-weight:bold;
+  padding:15px;
+  background-color:#f9fafb;
+  text-transform:uppercase;
+  border:1px solid #cbcfd9;
+  width:240px;
+  text-align: center;
+}
+
+</style>
   <body class="mixpanel-platform-body">
-    <h1>Hello, World!</h1>
-    <script>
-      // Run queries and display results here
+
+    <div id="container"></div>
+
+    <!-- What am I doing here:
+
+    - build a group of radio buttons to select between spec creators (a modicum of version control)
+    - select the most recently created spec by default
+      - currently the setting of 'checked' isn't being respected, not sure why
+    - for a selected user, show their spec as a table of event name - event properties
+
+    Still to add
+    - a toggle to make all items editable as inputs
+      - see the dbl_click behavior of this example http://examples.ractivejs.org/todos
+    $('#sm_content_box > div.sm_content.management > div:nth-child(6) > div.value > div').html().trim()
+    ## http://docs.ractivejs.org/latest/mustaches#variables
+    -->
+    <script type="text/ractive" id="template">
+      {{#if token == ""}}
+        {{> initialize}}
+      {{else}} 
+        {{> specTemplate}}
+        {{> rightNav}}
+      {{/if}}
     </script>
+
+    <script id="initialize" type="text/ractive">
+     
+      <div>
+          <table>
+            <tr><td>
+              Enter your project token:
+            </td><td>
+              <div><input type="text" value="{{initialToken}}" placeholder="From your Account settings page"></div>
+            </td></tr>
+            <div><p>Hint: this projects token is 8950dac216646efa64092d982b5403ba</p></div>
+            <tr><td>
+              And your name:
+            </td><td>
+              <label><input type="text" value="{{author}}" placeholder="Satchmo B Helpful"></label>
+            </td></tr>
+          </table>
+          <input type="button" value="Create a Spec" on-click="setToken(initialToken)">
+      </div>
+    </script>
+
+<!-- Control panel code -->
+    <script id="rightNav" type="text/ractive">
+      <div id="controls">
+        <div id="MPselector">
+        </div>
+        <select on-change="switchSpec( event )">
+          {{#each allSpecs:k}}
+          <option value={{k}}>{{ formattedSpecName( this ) }}</option>
+          {{/each}}
+        </select>
+        {{#if author === ""}}
+        <div>
+          <input type="text" value="{{inputAuthor}}" lazy>
+          <input type="button" on-click="newSpec( inputAuthor )" value="Save">>
+        </div>
+        {{/if}}
+        <p>The selected spec was created on <span class="date">{{workingSpec.timestamp}}.</span></p>
+
+        <fieldset>
+          <label><input type="radio" name="{{edit}}" value="{{false}}">Check Mode</label>
+          <label><input type="radio" name="{{edit}}" value="{{true}}">Edit Mode</label>
+        </fieldset>
+        <p> currently in edit mode? <span class="edit">{{edit}}</span></p>
+        {{#if edit}}
+          <input type="button" value="Save your spec" on-click="saveSpec()">
+        {{else}}
+          <input type="button" value="Check Spec" on-click="checkSpec()">
+        {{/if}}
+      </div>
+    </script>
+
+    <!-- New event form code -->
+    <script id="newEvent" type="text/ractive">
+      <div id="newEvent">
+        <div class="formWrapper left clear">
+          <div class="formTitle center">
+            Events
+          </div>
+          <input class="" type="text" value="{{newEvent.name}}" placeholder="Event name">
+          <input class="" type="button" on-click="addNewEvent( newEvent )"  value="Add to spec">
+        </div>
+
+        <div class="formWrapper right">
+          <div class="formTitle center">
+            Properties
+          </div>
+          {{#each newEvent.properties}}
+            <input class="" type="text" value="{{.name}}" placeholder="Property name">
+          {{/each}}
+          <label><input class="" type="text" value="{{newProp.name}}" placeholder="Property" on-change="addNewProp(newProp)"></label>
+          <input class="" type="button" value="Add property" on-click="addNewProp(newProp)">
+        </div>
+      </div>
+    </script>
+
+<!-- Spec stuff -->
+    <script id="specTemplate" type="text/ractive">
+      {{#with workingSpec}}
+      <div id="spec">
+      
+        {{#if edit}}{{> newEvent}}{{/if}}
+
+      <div id="specItems">
+        {{#each .events:i}}
+        <div class="specItem">
+          <div class="eventName {{ .editing ? 'editing' : ''}}"
+            id="{{.name}}"
+            on-dblclick="makeEditable( event.keypath )">{{.name}}</div>
+          {{#if .editing}}
+          <div class="edit-container">
+            <input
+              decorator='select'
+              class='event edit'
+              value="{{.name}}"
+              on-blur-change="submitEventEdit( event.keypath, .name)"
+            >
+          </div>
+          {{/if}}
+            {{#each .properties:j}}
+            <div class="propertyName {{ .editing ? 'editing': ''}}"
+               on-dblclick="makeEditable( event.keypath )"
+               id="{{events[i].name}}-{{events[i].properties[j].name}}">{{.name}}</div>
+            {{#if .editing}}
+            <div class="edit-container">
+              <input
+                decorator='select'
+                class='edit'
+                value="{{.name}}"
+                on-blur-change="submitPropertyEdit(event, j)"
+              >
+            {{/if}}
+            {{/each}}
+          </div>
+        {{/each}}
+        </div>
+      </div>
+      {{/with}}
+    </script>
+
+    <script>
+
+      var ractive = new Ractive({
+        el: "#container",
+        template: "#template",
+        data: {
+          allSpecs: [],
+          token: "",
+          workingSpec: {},
+          author: "",
+          edit: false,
+          newEvent: { name: "", editing: false, properties: [] },
+          newProp: { name: "", editing: false, type:"" },
+          formattedSpecName: function ( specItem ) {
+            return moment(specItem.timestamp).format("MMMM Do @ h:mm") + " by " + specItem.user
+          }
+        },
+        newSpec: function( author ) {
+          console.log('current author before set', this.get('author'));
+          ractive.set( 'author', author );
+          localStorage.setItem( 'author', author );
+          ractive.set('edit', true);
+          workingSpec = {
+            'user': author,
+            'timestamp': new Date(),
+            'events': []
+            }
+          return Promise.all([
+            this.set( 'workingSpec', workingSpec ),
+            this.push( 'allSpecs', workingSpec )
+          ])
+        },
+        setToken: function( token ) {
+          set(
+            data = { 'token': token },
+            token = token
+          ); // add token to the user
+          this.newSpec( this.get( 'author' )).then(function() {
+            setTimeout(function() { 
+              initialize()
+            }, 2000);
+          });
+        },
+        saveSpec: function() {
+          console.log('saving', this.get( 'workingSpec' ) );
+          //sanitize the spec object
+          ref = this.get( 'workingSpec' )
+          console.log('ref', ref)
+          tempEvents = []
+          $.each(ref.events, function(index, event) {
+            console.log('each event', event)
+            tempProps = []
+            $.each(event.properties, function(index, prop) {
+              console.log('each prop', prop)
+              tempProps.push({ 'name': prop.name, type: prop.type })
+            })
+            tempEvents.push({ name: event.name, properties: tempProps })
+          })
+          console.log(tempEvents)
+          wSpec = $.extend({}, {
+            'timestamp': new Date(),
+            'user': ref.user,
+            'events': tempEvents
+          });
+          console.log('wSpec', wSpec)
+          newSpec = $.extend({},{
+              'user': this.get( 'author' ),
+              'timestamp': new Date()
+            }
+          );
+          append(
+            data = { 'spec': wSpec },
+            token = this.get( 'token' )
+          );
+          ractive.push( 'allSpecs', wSpec );
+        },
+        addNewEvent: function ( eventObj ) {
+          console.log( 'new event', eventObj);
+          console.log( 'eventObj', eventObj.name, eventObj.properties)
+          if ( this.get( 'newProp.name' ) ) {
+            console.log('made it through', this.get( 'newProp' ) )
+          }
+          ractive.push( 'workingSpec.events', eventObj ).then( function() {
+            console.log('pushed');
+            ractive.set('newEvent', { name: "", editing: false, properties: [] });
+          });
+        },
+        addNewProp: function( prop ) {
+          console.log('new prop', prop);
+          ractive.push( 'newEvent.properties', prop);
+          ractive.set( 'newProp', { 'name': '', editing: false, type: ""} );
+        },  
+        filters: {
+          user: function ( specItem ) { return specItem.user === ractive.get('selectedUser') },
+          author: function( specItem ) { return specItem.user === ractive.get('author') }
+        },
+        computed: {
+          specItems: function() {
+            aS = ractive.get('allSpecs')
+            optionsArray = [];
+            for (i=0; i < aS.length; i++) {
+              temp = { 'value': aS[i], 'label': this.get('formattedSpecName')(aS[i])}
+              optionsArray.push(temp)
+            }
+            return optionsArray
+          }
+        },
+        switchSpec: function( event ) {
+          console.log( 'switch event', event.node.value )
+          index = parseInt(event.node.value)
+          ractive.makeWorking( ractive.get( 'allSpecs' )[index] )
+        },
+        decorators: {
+          select: function ( node ) {
+            setTimeout( function () {
+              node.select();
+            });
+
+            return {
+              // teardown is a noop
+              teardown: function () {}
+            };
+          }
+        },
+        makeWorking: function( specItem ) {
+          console.log('spec item', specItem)
+          tempEvents = []
+          $.each(specItem.events, function (j, event) {
+            tempProps = []
+            $.each(event.properties, function(k, prop) {
+              tempProps.push({
+                'name': prop.name,
+                'type': prop.type,
+                'editing': false
+              })
+            })
+            tempEvents.push({
+              'name': event.name,
+              'editing': false,
+              'properties': tempProps
+            })
+          })
+          console.log( 'temp events', tempEvents)
+          ractive.set( 'workingSpec', 
+            $.extend({}, {
+              'user': ractive.get( 'author' ),
+              'timestamp': new Date(),
+              'events': tempEvents
+            })
+          )
+        },
+        checkSpec: function() {
+          checker = function(name, properties) {
+            MP.api.topProperties(name).done(function(results){
+              if ($.isEmptyObject(results.json)) {
+                $(document.getElementById(name)).css('color', 'red')
+              } else {
+                $(document.getElementById(name)).css('color', 'green')
+              }
+              propNamesExist = results.json;
+              $.each(properties, function(index, desiredProp) {
+                debugger
+                id = name + "-" + desiredProp.name
+                console.log(id);
+                if (propNamesExist[desiredProp.name]) {
+                  console.log('boop')
+                  $(document.getElementById(id)).css('color', 'green');
+                } else {
+                  $(document.getElementById(id)).css('color', 'red');
+                }
+              })
+            })
+          }
+          $.each(ractive.get('workingSpec').events, function(index, eventInfo) { 
+            checker(eventInfo.name, eventInfo.properties);
+          });
+        },
+        makeEditable: function ( keypath ) {
+          console.log(keypath)
+          ractive.set(keypath + ".editing", true) 
+        },
+        submitEventEdit: function ( keypath, eventName ) {
+          console.log( keypath, eventName);
+          ractive.set(keypath + ".name", eventName)
+          ractive.set(keypath + ".edit", false)
+        }
+      });
+/*
+      ractive.on( 'addNewEvent', function ( event ) {
+        event.original.preventDefault();
+        console.log('this', this);
+        this.addNewEvent( ractive.get( 'newEvent' ) );
+      })
+      */
+
+      try {
+        localStorage = window.localStorage;
+      } catch (err) {}
+
+      var author = ''
+      if (localStorage) {
+        author = localStorage.getItem('author') || ''
+      }
+
+      ractive.set('author', author);
+      
+      var proto = document.location.protocol;
+      var setUrl = proto + "//api.mixpanel.com/engage";
+      var getUrl = proto + "//mixpanel.com/api/2.0/engage";
+
+      var distinct = "SPEC_USER";
+
+      //A user must first input this project's token which will create the profile/database
+      //setToken = function(projectToken) {
+      //  token = $('input:text[name=token]').val();
+      //  set({'token': projectToken})
+      //}
+
+      //pass this a list of spec objects
+      set = function(data, token) {
+        update = {
+          "$set": data,
+        }
+        send(update, token);
+      }
+      
+      append = function(data, token) {
+        console.log('appending data', data);
+        update = {
+          "$append": data,
+        } 
+        send( update, token );
+      }
+
+      send = function( update, token ) {
+        $.extend(update, {
+          "$token": token,
+          "$distinct_id": distinct
+        })
+        payload = { 'data': btoa(JSON.stringify(update)), "ip": 0 };
+        console.log('set', payload)
+        setXHR = new XMLHttpRequest();
+        setXHR.open("POST", setUrl, true);
+        setXHR.send($.param(payload))
+      };
+
+      //retrieve the user/database
+      get = function() {
+        return MP.api.query('/api/2.0/engage', {'distinct_id': distinct})
+      }
+
+      initialize = function( suppress_warning ) {
+        /*
+        token = (typeof token !== 'undefined') ? token : "";
+        spec = (typeof spec !== 'undefined') ? spec : []
+        console.log('initializing called', token, spec)
+        */
+        // initiate some spinning wheel thing saying that
+        // Your Data is Loading
+
+        // load a spec if it exists
+        get().done(function(data){
+          info = data.results[0]
+          console.log('loading info', info)
+          if (info) {
+            console.log('info exists') //there is at least a token saved
+            ractive.set( 'token', info.$properties.token );
+            returnedSpec = info.$properties.spec || []
+            console.log('returnedSpec', returnedSpec);
+            if (!$.isEmptyObject(returnedSpec)) { //there's a spec saved too
+              console.log('returnedSpec exists');
+              returnedSpec.sort(function(a,b){
+                return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+              });
+              ractive.set('allSpecs', returnedSpec);
+              ractive.makeWorking(returnedSpec[0]);
+            } else { //prompt the user to make a new spec
+              ractive.newSpec( ractive.get( 'author' ) );
+              return;
+            }
+          } else {
+            ractive.set('token', '');
+            if (!suppress_warning) {
+              alert('please re-enter your token');
+            }
+          }
+        });
+      }
+ 
+      //initial page creation
+      initialize( true )
+      //MP.api.on('mpplatform.credentialsRegistered', initialize( true ))
+
+      //for local testing
+      //MP.api.trigger('mpplatform.credentialsRegistered');
+
+    </script>
+
   </body>
 </html>
